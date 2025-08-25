@@ -1,0 +1,53 @@
+[project]
+name = "dumper"
+version = "0.1.0"
+description = "A CLI tool that merges multiple files into a single text file"
+readme = "README.md"
+authors = [
+    { name = "DasKaroWow", email = "daskarowow@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "rich>=14.1.0",
+    "typer>=0.16.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.9,<0.9.0"]
+build-backend = "uv_build"
+
+[project.scripts]
+dumper = "dumper.__main__:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-mock>=3.14.1",
+    "taskipy>=1.14.1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["."]
+exclude = ["migrations", ".venv", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "ANN", "ASYNC", "I"]
+ignore = ["E501", "E701"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "native"
+docstring-code-format = true
+skip-magic-trailing-comma = false
+
+[tool.taskipy.tasks]
+lint = "ruff check --no-cache --fix ."
+format = "ruff format --no-cache ."
+test = "pytest -v"
+precommit = "task format && task lint && task test"
+clean = "cleaner -u python --delete"
