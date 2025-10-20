@@ -5,10 +5,10 @@ from dumper.display import print_included
 
 def matches_any_glob(path: Path, root: Path, patterns: list[str]) -> bool:
     path = path.resolve().relative_to(root.resolve())
-    return any(path.match(pattern) for pattern in patterns)
+    return path.suffix in patterns
 
 
-def find_targets(globs: list[str], ignored_dirs: list[str], ignored_files: list[str], root: Path) -> set[Path]:
+def find_targets(extensions: list[str], ignored_dirs: list[str], ignored_files: list[str], root: Path) -> set[Path]:
     paths_to_include = set()
 
     for current_root, current_dirs, current_files in root.walk(top_down=True):
@@ -16,7 +16,7 @@ def find_targets(globs: list[str], ignored_dirs: list[str], ignored_files: list[
         current_files[:] = [f for f in current_files if f not in ignored_files]
         for filename in current_files:
             filepath = current_root / filename
-            if matches_any_glob(filepath, root, globs):
+            if matches_any_glob(filepath, root, extensions):
                 paths_to_include.add(filepath.resolve())
 
     return paths_to_include

@@ -1,0 +1,236 @@
+# tests/test_core.py
+from pathlib import Path
+from dumper.core import matches_any_glob, find_targets, process_targets
+
+def test_matches_any_glob(sample_tree: dict[str, Path]) -> None:
+    root: Path = sample_tree["root"]
+    file_py: Path = sample_tree["c_py"]
+    assert matches_any_glob(file_py, root, ["*.py"])
+    assert not matches_any_glob(file_py, root, ["*.txt"])
+    assert matches_any_glob(file_py, root, ["*.md", "*.py"])
+    assert matches_any_glob(sample_tree["a_py"], root, ["*.py"])
+
+def test_find_targets_respects_globs_and_ignores(sample_tree: dict[str, Path]) -> None:
+    root: Path = sample_tree["root"]
+    globs = ["*.py"]
+    ignored_dirs = ["ignore_me"]
+    ignored_files = ["skip.me"]
+
+    targets = find_targets(globs, ignored_dirs, ignored_files, root)
+    rel = {p.relative_to(root).as_posix() for p in targets}
+    assert rel == {"a.py", "dir1/c.py"}  # d.py и skip.me исключены
+
+def test_process_targets_writes_headers_and_prints(sample_tree, capsys):
+    root: Path = sample_tree["root"]
+    f1: Path = sample_tree["a_py"]
+    f2: Path = sample_tree["c_py"]
+
+    output = root / "project_dump.txt"
+    process_targets({f1, f2}, root, output)
+
+    assert output.exists()
+    content = output.read_text(encoding="utf-8")
+    assert "# a.py" in content
+    assert "# dir1/c.py" in content
+
+    out = capsys.readouterr().out
+    assert "file included" in out
+
+
+# src/dumper/__init__.py
+
+
+# src/dumper/display.py
+from collections.abc import Sized
+from pathlib import Path
+
+from rich.console import Console
+from rich.markup import escape
+
+console = Console()
+
+ICON_OK = ":heavy_check_mark:"
+ICON_SKIP = ":x:"
+STYLE_PATH = "bold cyan"
+STYLE_OK = "green"
+STYLE_SKIP = "yellow"
+STYLE_DIM = "dim"
+
+
+def print_included(path: Path) -> None:
+    console.print(f"{ICON_OK} {escape(path.as_posix())} — file included")
+
+
+def print_summary(included: Sized) -> None:
+    included_count = len(included)
+    console.rule("[b]Summary")
+    console.print(f"{ICON_OK} [bold {STYLE_OK}]Included:[/] {included_count}")
+
+
+# tests/test_cli.py
+from pathlib import Path
+from typer.testing import CliRunner
+from dumper.cli import app
+from typer import Typer
+from click.testing import Result
+from pytest import MonkeyPatch
+
+
+def run_cli(app: Typer, *args: str) -> Result:
+    return CliRunner().invoke(app, list(args))
+
+def test_cli_dumper_creates_dump_and_summary(cli_app: Typer,sample_tree: dict[str, Path], monkeypatch: MonkeyPatch) -> None:
+    root: Path = sample_tree["root"]
+    monkeypatch.chdir(root)
+
+    result = run_cli(
+        cli_app,
+            "--globs", "*.py",
+            "--ignored-dirs", "ignore_me",
+            "--ignored-files", "skip.me",
+    )
+
+    assert result.exit_code == 0, result.stdout
+    dump = root / "project_dump.txt"
+    assert dump.exists()
+
+    txt = dump.read_text(encoding="utf-8")
+    assert "# a.py" in txt
+    assert "# dir1/c.py" in txt
+    assert "# dir1/skip.me" not in txt
+    assert "# ignore_me/d.py" not in txt
+
+    stdout = result.stdout
+    assert "Summary" in stdout
+    assert "Included:" in stdout
+    assert "file included" in stdout
+
+def test_cli_requires_globs_arg(cli_app: Typer, sample_tree: dict[str, Path], monkeypatch: MonkeyPatch) -> None:
+    root: Path = sample_tree["root"]
+    monkeypatch.chdir(root)
+
+    result = run_cli(cli_app)
+    assert result.exit_code != 0
+    assert "Missing option '--globs'" in result.stderr
+
+
+# src/dumper/__main__.py
+from .cli import app
+
+if __name__ == "__main__":
+    app()
+
+
+# src/dumper/core.py
+from pathlib import Path
+
+from dumper.display import print_included
+
+
+def matches_any_glob(path: Path, root: Path, patterns: list[str]) -> bool:
+    path = path.resolve().relative_to(root.resolve())
+    return path.suffix in patterns
+
+
+def find_targets(extensions: list[str], ignored_dirs: list[str], ignored_files: list[str], root: Path) -> set[Path]:
+    paths_to_include = set()
+
+    for current_root, current_dirs, current_files in root.walk(top_down=True):
+        current_dirs[:] = [d for d in current_dirs if d not in ignored_dirs]
+        current_files[:] = [f for f in current_files if f not in ignored_files]
+        for filename in current_files:
+            filepath = current_root / filename
+            if matches_any_glob(filepath, root, extensions):
+                paths_to_include.add(filepath.resolve())
+
+    return paths_to_include
+
+
+def process_targets(filepaths: set[Path], root: Path, output: Path) -> None:
+    with output.open("w", encoding="utf-8") as out:
+        for filepath in filepaths:
+            rel_path = filepath.relative_to(root)
+            out.write(f"# {rel_path.as_posix()}\n")
+            content = filepath.read_text(encoding="utf-8", errors="ignore")
+            out.write(content)
+            out.write("\n\n")
+            print_included(rel_path)
+
+
+# tests/conftest.py
+from pathlib import Path
+import pytest
+from typer import Typer
+
+@pytest.fixture()
+def chdir_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+@pytest.fixture
+def sample_tree(chdir_tmp: Path) -> dict[str, Path]:
+    """
+    a.py, b.txt, dir1/c.py, dir1/skip.me, ignore_me/d.py
+    """
+    root = chdir_tmp
+    (root / "dir1").mkdir()
+    (root / "ignore_me").mkdir()
+
+    files = {
+        "root": root,
+        "a_py": root / "a.py",
+        "b_txt": root / "b.txt",
+        "c_py": root / "dir1" / "c.py",
+        "skip_me": root / "dir1" / "skip.me",
+        "ignored_py": root / "ignore_me" / "d.py",
+    }
+    files["a_py"].write_text("A", encoding="utf-8")
+    files["b_txt"].write_text("B", encoding="utf-8")
+    files["c_py"].write_text("C", encoding="utf-8")
+    files["skip_me"].write_text("X", encoding="utf-8")
+    files["ignored_py"].write_text("D", encoding="utf-8")
+
+    return files
+
+@pytest.fixture()
+def cli_app() -> Typer:
+    try:
+        from dumper.__main__ import app  # type: ignore
+
+        return app
+    except Exception as error:
+        pytest.skip(f"Unable to import Typer app: {error}")
+
+# src/dumper/cli.py
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from dumper.core import find_targets, process_targets
+from dumper.display import print_summary, console
+
+app = typer.Typer(help="A CLI tool that merges multiple files into a single text file", add_completion=False)
+
+
+@app.command()
+def dumper(
+    extensions: Annotated[list[str], typer.Argument(help="Extensions to include")],
+    ignored_dirs: Annotated[
+        list[str],
+        typer.Option("--ignored-dirs", "-id", help="Folders to ignore", show_default="[]", default_factory=list),
+    ],
+    ignored_files: Annotated[
+        list[str],
+        typer.Option("--ignored-files", "-if", help="Files to ignore", show_default="[]", default_factory=list),
+    ],
+) -> None:
+    root = Path(".").resolve()
+    output = root / "project_dump.txt"
+
+    console.rule(root.as_posix())
+    included_files = find_targets(extensions, ignored_dirs, ignored_files, root)
+    process_targets(included_files, root, output)
+    print_summary(included_files)
+
+
