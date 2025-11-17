@@ -1,18 +1,18 @@
 # Dumper
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
 [![Typer](https://img.shields.io/badge/CLI-typer-green)](https://typer.tiangolo.com/)
 [![Rich](https://img.shields.io/badge/UI-rich-magenta)](https://github.com/Textualize/rich)
 [![Tests](https://img.shields.io/badge/tests-pytest-yellow)](https://docs.pytest.org/)
 
-**Dumper** is a simple CLI tool that merges multiple files into a single text file.  
-It supports glob patterns for inclusion and allows ignoring specific files or directories.
+**Dumper** is a simple CLI tool that merges multiple files into a single text file.
+It supports patterns for inclusion and allows ignoring specific files or directories.
 
 ---
 
 ## ✨ Features
 - 📂 Merge multiple files into one text file
-- 🎯 Use glob patterns to include files (`*.py`, `*.txt`)
+- 🎯 Use glob patterns to include files (`.py`, `.txt`)
 - 🚫 Ignore directories and specific files
 - 🎨 Colored output powered by [rich](https://github.com/Textualize/rich)
 - 🧪 Tested with `pytest`
@@ -20,11 +20,16 @@ It supports glob patterns for inclusion and allows ignoring specific files or di
 ---
 
 ## 🚀 Installation
-
+### Recommended installing with **uv**:
 ```bash
-git clone https://github.com/yourusername/dumper.git
-cd dumper
-uv pip install -e .
+uv tool install cli-dumper
+```
+
+### or from source:
+```
+git clone https://github.com/DasKaroWow/cli-dumper.git
+cd cli-dumper
+pip install -e .
 ```
 
 ---
@@ -34,7 +39,7 @@ uv pip install -e .
 After installation, the CLI is available as `dumper`.
 
 ```bash
-dumper --globs "*.py" --ignore-dirs venv --ignore-files test.py
+dumper .py --ignore-dirs venv --ignore-files test.py
 ```
 
 This will:
