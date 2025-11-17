@@ -1,23 +1,28 @@
 from pathlib import Path
-from typer.testing import CliRunner
-from dumper.cli import app
-from typer import Typer
+
 from click.testing import Result
 from pytest import MonkeyPatch
+from typer import Typer
+from typer.testing import CliRunner
 
 
 def run_cli(app: Typer, *args: str) -> Result:
     return CliRunner().invoke(app, list(args))
 
-def test_cli_dumper_creates_dump_and_summary(cli_app: Typer,sample_tree: dict[str, Path], monkeypatch: MonkeyPatch) -> None:
+
+def test_cli_dumper_creates_dump_and_summary(
+    cli_app: Typer, sample_tree: dict[str, Path], monkeypatch: MonkeyPatch
+) -> None:
     root: Path = sample_tree["root"]
     monkeypatch.chdir(root)
 
     result = run_cli(
         cli_app,
-            "--globs", "*.py",
-            "--ignored-dirs", "ignore_me",
-            "--ignored-files", "skip.me",
+        ".py",
+        "--ignored-dirs",
+        "ignore_me",
+        "--ignored-files",
+        "skip.me",
     )
 
     assert result.exit_code == 0, result.stdout
@@ -35,10 +40,13 @@ def test_cli_dumper_creates_dump_and_summary(cli_app: Typer,sample_tree: dict[st
     assert "Included:" in stdout
     assert "file included" in stdout
 
-def test_cli_requires_globs_arg(cli_app: Typer, sample_tree: dict[str, Path], monkeypatch: MonkeyPatch) -> None:
+
+def test_cli_requires_globs_arg(
+    cli_app: Typer, sample_tree: dict[str, Path], monkeypatch: MonkeyPatch
+) -> None:
     root: Path = sample_tree["root"]
     monkeypatch.chdir(root)
 
     result = run_cli(cli_app)
     assert result.exit_code != 0
-    assert "Missing option '--globs'" in result.stderr
+    assert "Usage: dumper [OPTIONS] EXTENSIONS" in result.stderr

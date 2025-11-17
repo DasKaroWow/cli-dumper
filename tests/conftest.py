@@ -1,11 +1,14 @@
 from pathlib import Path
+
 import pytest
 from typer import Typer
+
 
 @pytest.fixture()
 def chdir_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.chdir(tmp_path)
     return tmp_path
+
 
 @pytest.fixture
 def sample_tree(chdir_tmp: Path) -> dict[str, Path]:
@@ -24,18 +27,19 @@ def sample_tree(chdir_tmp: Path) -> dict[str, Path]:
         "skip_me": root / "dir1" / "skip.me",
         "ignored_py": root / "ignore_me" / "d.py",
     }
-    files["a_py"].write_text("A", encoding="utf-8")
-    files["b_txt"].write_text("B", encoding="utf-8")
-    files["c_py"].write_text("C", encoding="utf-8")
-    files["skip_me"].write_text("X", encoding="utf-8")
-    files["ignored_py"].write_text("D", encoding="utf-8")
+    _ = files["a_py"].write_text("A", encoding="utf-8")
+    _ = files["b_txt"].write_text("B", encoding="utf-8")
+    _ = files["c_py"].write_text("C", encoding="utf-8")
+    _ = files["skip_me"].write_text("X", encoding="utf-8")
+    _ = files["ignored_py"].write_text("D", encoding="utf-8")
 
     return files
+
 
 @pytest.fixture()
 def cli_app() -> Typer:
     try:
-        from dumper.__main__ import app  # type: ignore
+        from cli_dumper.cli import app
 
         return app
     except Exception as error:

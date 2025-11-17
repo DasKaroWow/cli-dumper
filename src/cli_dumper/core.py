@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dumper.display import print_included
+from cli_dumper.display import print_included
 
 
 def matches_any_glob(path: Path, root: Path, patterns: list[str]) -> bool:
@@ -8,8 +8,10 @@ def matches_any_glob(path: Path, root: Path, patterns: list[str]) -> bool:
     return path.suffix in patterns
 
 
-def find_targets(extensions: list[str], ignored_dirs: list[str], ignored_files: list[str], root: Path) -> set[Path]:
-    paths_to_include = set()
+def find_targets(
+    extensions: list[str], ignored_dirs: list[str], ignored_files: list[str], root: Path
+) -> set[Path]:
+    paths_to_include = set[Path]()
 
     for current_root, current_dirs, current_files in root.walk(top_down=True):
         current_dirs[:] = [d for d in current_dirs if d not in ignored_dirs]
@@ -26,8 +28,8 @@ def process_targets(filepaths: set[Path], root: Path, output: Path) -> None:
     with output.open("w", encoding="utf-8") as out:
         for filepath in filepaths:
             rel_path = filepath.relative_to(root)
-            out.write(f"# {rel_path.as_posix()}\n")
+            _ = out.write(f"# {rel_path.as_posix()}\n")
             content = filepath.read_text(encoding="utf-8", errors="ignore")
-            out.write(content)
-            out.write("\n\n")
+            _ = out.write(content)
+            _ = out.write("\n\n")
             print_included(rel_path)
